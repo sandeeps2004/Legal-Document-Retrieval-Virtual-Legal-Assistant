@@ -4,6 +4,17 @@ AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generat
 
 ![Dashboard](charts/00_dashboard.png)
 
+## Application Results
+
+### Legal Search — High Confidence Result
+
+![Legal Search](charts/07_legal_search_light.png)
+![Legal Search Result](charts/08_legal_search_result.png)
+
+### Personal Legal Assistant
+
+![Legal Assistant](charts/09_legal_assistant.png)
+
 ## Architecture
 
 ```
