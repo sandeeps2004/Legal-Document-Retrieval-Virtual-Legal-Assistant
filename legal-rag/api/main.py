@@ -17,11 +17,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from config import CORS_ORIGINS, MAX_INPUT_LENGTH, PROBLEM_CATEGORIES, DATABASE_URL
+import psycopg2
+from google import genai
+
+from config import (
+    CORS_ORIGINS, MAX_INPUT_LENGTH, PROBLEM_CATEGORIES, DATABASE_URL,
+    GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODEL,
+    MAX_CONTEXT_TOKENS, SYSTEM_PROMPT, ASSISTANT_SYSTEM_PROMPT,
+    TOP_K_PER_COLLECTION,
+)
 from rag.pipeline import run_query, _extract_related_questions
-from rag.retriever import get_collection_stats
+from rag.retriever import get_collection_stats, retrieve
 from rag.generator import generate_answer, _build_context, _count_tokens, _assess_confidence
-from assistant.legal_assistant import run_assistant, classify_problem
+from assistant.legal_assistant import run_assistant, classify_problem, _build_category_query
 
 app = FastAPI(
     title="Legal RAG API",
@@ -141,17 +149,8 @@ def _build_history_context(history: list[HistoryTurn], max_turns: int = 5) -> st
 async def _stream_response(
     query: str, mode: str, category: str | None, history: list[HistoryTurn]
 ) -> AsyncGenerator[str, None]:
-    from rag.retriever import retrieve
-    from config import (
-        GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODEL,
-        MAX_CONTEXT_TOKENS, SYSTEM_PROMPT, ASSISTANT_SYSTEM_PROMPT,
-        TOP_K_PER_COLLECTION,
-    )
-    from google import genai
-
     if mode == "assistant":
-        from assistant.legal_assistant import classify_problem as _classify, _build_category_query
-        detected = category or _classify(query)
+        detected = category or classify_problem(query)
         enriched = _build_category_query(query, detected)
         retrieved = await asyncio.to_thread(retrieve, enriched, TOP_K_PER_COLLECTION)
         sys_prompt = f"{ASSISTANT_SYSTEM_PROMPT}\n\nProblem Category: {detected}"
@@ -227,7 +226,7 @@ async def stream(req: StreamRequest):
 
 @app.post("/sessions")
 async def save_session(req: SessionSave):
-    import psycopg2
+    conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
@@ -251,15 +250,17 @@ async def save_session(req: SessionSave):
                 updated_at = now()
         """, (session_id, req.title, req.mode, json.dumps(req.messages)))
         conn.commit()
-        conn.close()
         return {"id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.get("/sessions")
 async def list_sessions():
-    import psycopg2
+    conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
@@ -276,24 +277,25 @@ async def list_sessions():
         conn.commit()
         cur.execute("SELECT id, title, mode, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 20")
         rows = cur.fetchall()
-        conn.close()
         return [
             {"id": r[0], "title": r[1], "mode": r[2], "created_at": str(r[3]), "updated_at": str(r[4])}
             for r in rows
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.get("/sessions/{session_id}")
 async def get_session(session_id: str):
-    import psycopg2
+    conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         cur.execute("SELECT id, title, mode, messages FROM chat_sessions WHERE id = %s", (session_id,))
         row = cur.fetchone()
-        conn.close()
         if not row:
             raise HTTPException(status_code=404, detail="Session not found")
         return {"id": row[0], "title": row[1], "mode": row[2], "messages": row[3]}
@@ -301,20 +303,25 @@ async def get_session(session_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
-    import psycopg2
+    conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
         cur.execute("DELETE FROM chat_sessions WHERE id = %s", (session_id,))
         conn.commit()
-        conn.close()
         return {"deleted": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 
 if __name__ == "__main__":

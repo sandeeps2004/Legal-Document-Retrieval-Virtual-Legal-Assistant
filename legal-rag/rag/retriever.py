@@ -14,9 +14,14 @@ import psycopg2
 from rank_bm25 import BM25Okapi
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
+from google import genai
+
 from config import (
     DATABASE_URL,
     EMBEDDING_MODEL,
+    GEMINI_API_KEY,
+    GEMINI_FALLBACK_MODEL,
+    QUERY_EXPANSION_PROMPT,
     RERANKER_MODEL,
     TOP_K_BM25,
     TOP_K_FINAL,
@@ -61,6 +66,7 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _build_bm25_index(collection_name: str) -> tuple[BM25Okapi, list[dict]] | None:
+    conn = None
     try:
         conn = _get_conn()
         with conn.cursor() as cur:
@@ -69,9 +75,11 @@ def _build_bm25_index(collection_name: str) -> tuple[BM25Okapi, list[dict]] | No
                 (collection_name,),
             )
             rows = cur.fetchall()
-        conn.close()
     except Exception:
         return None
+    finally:
+        if conn:
+            conn.close()
 
     if not rows:
         return None
@@ -137,6 +145,7 @@ def _semantic_search(query: str, top_k_per_collection: int) -> list[SearchResult
 
     results: list[SearchResult] = []
 
+    conn = None
     try:
         conn = _get_conn()
         with conn.cursor() as cur:
@@ -166,9 +175,11 @@ def _semantic_search(query: str, top_k_per_collection: int) -> list[SearchResult
                             score=round(float(similarity), 4),
                         )
                     )
-        conn.close()
     except Exception as e:
         print(f"Semantic search error: {e}")
+    finally:
+        if conn:
+            conn.close()
 
     return results
 
@@ -202,9 +213,6 @@ def _rerank(query: str, results: list[SearchResult], top_k: int) -> list[SearchR
 def _expand_query(query: str) -> list[str]:
     """Use Gemini to generate alternative phrasings for better retrieval."""
     try:
-        from config import GEMINI_API_KEY, GEMINI_FALLBACK_MODEL, QUERY_EXPANSION_PROMPT
-        from google import genai
-
         if not GEMINI_API_KEY:
             return [query]
 
@@ -241,6 +249,7 @@ def retrieve(query: str, top_k_per_collection: int | None = None, expand: bool =
 
 def get_collection_stats() -> dict:
     stats = {}
+    conn = None
     try:
         conn = _get_conn()
         with conn.cursor() as cur:
@@ -250,10 +259,13 @@ def get_collection_stats() -> dict:
                     (name,),
                 )
                 stats[name] = cur.fetchone()[0]
-        conn.close()
     except Exception:
         for name in ALL_COLLECTIONS:
-            stats[name] = 0
+            if name not in stats:
+                stats[name] = 0
+    finally:
+        if conn:
+            conn.close()
     return stats
 
 
