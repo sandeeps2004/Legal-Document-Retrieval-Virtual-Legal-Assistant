@@ -1,6 +1,8 @@
 # Legal Document Retrieval & Virtual Legal Assistant
 
-AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generation). Search across IPC, BNS 2023, Constitution, CrPC, 24,000+ legal Q&A pairs, and 170,000+ court judgments.
+AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generation). Search across IPC, BNS 2023, Constitution, CrPC, 24,000+ legal Q&A pairs, and 146,000+ court judgments.
+
+![Dashboard](charts/00_dashboard.png)
 
 ## Architecture
 
@@ -15,7 +17,7 @@ AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generat
 │   FastAPI Backend                │  ← localhost:8000
 │                                  │
 │   ┌───────────────────────────┐ │
-│   │  Retriever (pgvector+BM25)│ │
+│   │  Retriever (pgvector)     │ │
 │   │  Cross-encoder reranker   │ │
 │   │  Gemini 2.5 Flash (LLM)  │ │
 │   └───────────────────────────┘ │
@@ -25,41 +27,120 @@ AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generat
 ┌─────────────────────────────────┐
 │   Neon (pgvector)               │  ← Cloud database
 │   384-dim embeddings            │
-│   200K+ legal document chunks   │
+│   164K+ legal document chunks   │
 └─────────────────────────────────┘
 ```
 
-## Tech Stack
+## Technologies Used
 
-| Layer      | Technology                                    |
-|------------|-----------------------------------------------|
-| Frontend   | Next.js 15, Three.js, React Three Fiber, Tailwind, Framer Motion |
-| Backend    | FastAPI, Python 3.12                          |
-| LLM        | Google Gemini 2.5 Flash                       |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2)      |
-| Reranker   | cross-encoder/ms-marco-MiniLM-L-6-v2         |
-| Vector DB  | Neon PostgreSQL + pgvector                    |
-| Search     | Hybrid (semantic + BM25) with cross-encoder reranking |
+| Category | Technology | Purpose |
+|----------|-----------|---------|
+| **Frontend** | Next.js 15, React 19 | Web application framework |
+| **3D Graphics** | Three.js, React Three Fiber, Drei | Interactive 3D animated background |
+| **Styling** | Tailwind CSS, Framer Motion | UI styling and animations |
+| **Backend** | FastAPI, Uvicorn | REST API + SSE streaming server |
+| **LLM** | Google Gemini 2.5 Flash | Answer generation, query expansion |
+| **Embeddings** | sentence-transformers (all-MiniLM-L6-v2) | 384-dim text embeddings (BERT-based) |
+| **Reranker** | cross-encoder/ms-marco-MiniLM-L-6-v2 | Cross-encoder learning-to-rank model |
+| **Vector Database** | Neon PostgreSQL + pgvector | Semantic similarity search over 164K vectors |
+| **NLP** | tiktoken | Token counting and text chunking |
+| **PDF Parsing** | PyMuPDF (fitz) | Extract text from legal PDF documents |
+| **Deep Learning** | PyTorch, Transformers | Model inference for embeddings and reranking |
+| **Data Processing** | pandas, NumPy | Dataset loading and processing |
+| **Streaming** | Server-Sent Events (SSE) | Real-time token-by-token response streaming |
+| **Deployment** | Vercel (frontend), Railway (backend) | Production hosting |
+
+## ML/AI Techniques Used
+
+| Technique | Implementation | Details |
+|-----------|---------------|---------|
+| **RAG (Retrieval-Augmented Generation)** | Full pipeline | Query → Embed → Retrieve → Rerank → Generate |
+| **Semantic Search** | pgvector cosine similarity | 384-dim vector search over 164K chunks |
+| **Cross-Encoder Reranking** | ms-marco-MiniLM-L-6-v2 | Learning-to-rank for precision (21ms/pair) |
+| **Text Classification** | Keyword-based classifier | 93.3% accuracy, 0.957 Macro F1 across 6 categories |
+| **Query Expansion** | Gemini-powered | Generate alternative phrasings for better recall |
+| **Conversation Memory** | Context windowing | Last 5 Q&A turns passed to LLM |
+| **Recommendation** | Related questions | Suggest follow-up queries from retrieved context |
+| **Text Chunking** | tiktoken-based | 500-token chunks with 100-token overlap |
+
+## Evaluation Metrics
+
+### Category Classifier Performance
+
+![Confusion Matrix](charts/05_confusion_matrix.png)
+
+| Metric | Score |
+|--------|-------|
+| **Accuracy** | 93.3% |
+| **Macro Precision** | 0.972 |
+| **Macro Recall** | 0.952 |
+| **Macro F1** | 0.957 |
+| **Categories** | 6 (Criminal, Civil, Property, Consumer, Labor, Family) |
+| **Test Samples** | 30 |
+
+### Per-Class Precision / Recall / F1
+
+![Precision Recall F1](charts/06_precision_recall_f1.png)
+
+### Retrieval Metrics
+
+| Metric | Score |
+|--------|-------|
+| **Precision@1** | 13.3% |
+| **Precision@5** | 36.7% |
+| **Recall@10** | 36.7% |
+| **MRR** | 0.216 |
+| **Avg Search Latency** | 999ms (164K vectors, no index) |
+
+> Note: Retrieval precision measures exact source matching. The system often returns correct legal information from alternative sources (e.g., court judgments citing IPC sections instead of IPC.pdf directly), so actual answer quality is significantly higher than source-level precision suggests.
+
+### Pipeline Performance
+
+![Evaluation Dashboard](charts/04_evaluation_dashboard.png)
+
+| Component | Throughput / Latency |
+|-----------|---------------------|
+| **Embedding** | 59 chunks/sec |
+| **Reranking** | 48 pairs/sec (21ms/pair) |
+| **Vector Search** | ~1000ms over 164K vectors |
+| **Streaming** | Real-time token-by-token via SSE |
+
+### Dataset Distribution
+
+![Dataset Distribution](charts/01_dataset_distribution.png)
+
+![Top Sources](charts/03_top_sources.png)
+
+### Latency Breakdown
+
+![Latency Breakdown](charts/02_latency_breakdown.png)
 
 ## Features
 
-- **Legal Search**: Ask any question about Indian law with cited sources
+- **Legal Search**: Ask any question about Indian law with cited sources and confidence scoring
 - **Personal Legal Assistant**: Describe a problem, get rights + applicable laws + recommended actions
-- **Hybrid Search**: Combines semantic vector search with BM25 keyword search
-- **Cross-encoder Reranking**: Reranks results for precision
 - **Streaming Responses**: Real-time token-by-token answer generation via SSE
-- **3D Interactive UI**: Animated star field and floating orbs background
-- **Source Citations**: Every answer includes source documents with relevance scores
+- **3D Interactive UI**: Animated star field and floating orbs (Three.js)
+- **Conversation Memory**: Multi-turn chat with 5-turn context window
+- **Query Expansion**: Gemini generates alternative phrasings for better retrieval
+- **Related Questions**: Clickable follow-up suggestions after each answer
+- **Dark/Light Theme**: Toggle with localStorage persistence
+- **Mobile Responsive**: Slide-out drawer sidebar on mobile
+- **Copy & Export**: Copy answers to clipboard or export as PDF
+- **Keyboard Shortcuts**: ⌘K focus, ⌘1/⌘2 switch modes, Escape clear
 
 ## Data Sources
 
-- Indian Penal Code (IPC)
-- Bharatiya Nyaya Sanhita 2023 (BNS)
-- Constitution of India
-- Code of Criminal Procedure (CrPC)
-- Transfer of Property Act, RTI Act, Consumer Protection Act, and more
-- 24,000+ legal Q&A pairs
-- 170,000+ Supreme Court and High Court judgments
+| Document | Chunks | Type |
+|----------|--------|------|
+| Supreme Court & High Court Judgments | 146,459 | Case Law |
+| Indian Law QA Dataset | 13,296 | Q&A Pairs |
+| Companies Act 2013 | 903 | Statute PDF |
+| CPC 1908 | 850 | Statute PDF |
+| Constitution of India | 675 | Statute PDF |
+| Motor Vehicles Act 1988 | 363 | Statute PDF |
+| IPC, BNS, NDPS, IT Act, Contract Act, etc. | 1,544 | Statute PDFs |
+| **Total** | **164,090** | **33 unique sources** |
 
 ## Setup
 
@@ -105,53 +186,57 @@ python3 ingest/embedder.py
 ### 4. Run
 
 ```bash
-# Terminal 1: Backend
-python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Terminal 2: Frontend
-cd ../frontend
-npm install
-npm run dev
+bash start.sh
 ```
 
+Or use VS Code / Cursor Run and Debug → **"Full Stack (Backend + Frontend)"**
+
 Open [http://localhost:3000](http://localhost:3000)
+
+### 5. Evaluate
+
+```bash
+python3 evaluate.py
+python3 generate_dashboard.py
+```
 
 ## Project Structure
 
 ```
-legal-rag/
-├── api/main.py              # FastAPI backend (REST + SSE streaming)
-├── ingest/
-│   ├── csv_loader.py         # Load + chunk CSV Q&A dataset
-│   ├── pdf_loader.py         # Extract + chunk PDFs (PyMuPDF)
-│   ├── jsonl_loader.py       # Load + chunk JSONL datasets
-│   └── embedder.py           # Embed chunks + store in pgvector
-├── rag/
-│   ├── retriever.py          # Hybrid search (pgvector + BM25) + reranker
-│   ├── generator.py          # Gemini answer generation with citations
-│   └── pipeline.py           # Full RAG pipeline
-├── assistant/
-│   └── legal_assistant.py    # Personal legal assistant mode
-├── config.py
-├── requirements.txt
-└── .env
-
-frontend/
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx          # Main UI (search + assistant modes)
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── Scene3D.tsx       # Three.js 3D background
+├── legal-rag/
+│   ├── api/main.py              # FastAPI backend (REST + SSE streaming + sessions)
+│   ├── ingest/
+│   │   ├── csv_loader.py         # Load + chunk CSV Q&A dataset
+│   │   ├── pdf_loader.py         # Extract + chunk PDFs (PyMuPDF)
+│   │   ├── jsonl_loader.py       # Load + chunk JSONL datasets
+│   │   └── embedder.py           # Embed chunks + store in pgvector
+│   ├── rag/
+│   │   ├── retriever.py          # Semantic search (pgvector) + reranker
+│   │   ├── generator.py          # Gemini answer generation with citations
+│   │   └── pipeline.py           # Full RAG pipeline
+│   ├── assistant/
+│   │   └── legal_assistant.py    # Personal legal assistant mode
+│   ├── config.py
+│   └── requirements.txt
+├── frontend/
+│   ├── src/app/page.tsx          # Main UI (search + assistant modes)
+│   ├── src/components/
+│   │   ├── Scene3D.tsx           # Three.js 3D background
 │   │   ├── ConfidenceBadge.tsx
 │   │   ├── SourceChips.tsx
 │   │   └── TypingIndicator.tsx
-│   └── lib/
-│       └── api.ts            # API client + SSE streaming
-└── .env.local
+│   └── src/lib/api.ts            # API client + SSE streaming
+├── charts/                       # Evaluation dashboards and metrics
+├── evaluate.py                   # Evaluation pipeline
+├── generate_dashboard.py         # Performance dashboard generator
+├── start.sh                      # Start both servers
+└── README.md
 ```
 
 ## Disclaimer
 
-This is AI-generated legal information, not professional legal advice. Always consult a qualified lawyer for your specific situation.
+This is AI-generated legal information, **not** a substitute for professional legal advice. Always consult a qualified lawyer for your specific legal situation.
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
