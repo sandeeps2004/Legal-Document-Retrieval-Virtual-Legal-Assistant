@@ -149,6 +149,7 @@ def _semantic_search(query: str, top_k_per_collection: int) -> list[SearchResult
     try:
         conn = _get_conn()
         with conn.cursor() as cur:
+            cur.execute("SET hnsw.ef_search = 100")
             for collection_name in ALL_COLLECTIONS:
                 cur.execute(
                     """SELECT text, source, metadata,
