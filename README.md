@@ -1,4 +1,4 @@
-# Legal Document Retrieval & Virtual Legal Assistant
+# LEGAL AI - Legal Document Retrieval & Virtual Legal Assistant
 
 AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generation). Search across IPC, BNS 2023, Constitution, CrPC, 24,000+ legal Q&A pairs, and 146,000+ court judgments.
 
