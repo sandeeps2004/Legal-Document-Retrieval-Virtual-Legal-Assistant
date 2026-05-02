@@ -60,7 +60,7 @@ AI-powered legal assistant for Indian law using RAG (Retrieval-Augmented Generat
 | **Backend** | FastAPI, Uvicorn | REST API + SSE streaming server |
 | **Streaming** | Server-Sent Events (SSE) | Real-time token-by-token response streaming |
 
-## ML/AI Techniques Used
+## Techniques Used
 
 | Technique | Implementation | Details |
 |-----------|---------------|---------|
